@@ -11,11 +11,11 @@ def RawtoPNG(input_path, output_path):
     rgb = rawData.postprocess(
         use_camera_wb=True,
         no_auto_bright=True,
-        bright=7.0,
+        bright=5.0,
         gamma=(1.0, 1.0),
     )
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    bgr = cv2.resize(bgr, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    # bgr = cv2.resize(bgr, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
     cv2.imwrite(output_path, bgr)
     rawData.close()
