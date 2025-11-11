@@ -263,8 +263,8 @@ namespace EDS {
 
     bool PyDict_ToEdsPoint(PyObject *pyDict, EdsPoint &point) {
         // Check if the dictionary has the correct keys
-        PyObject *pyX(PyDict_GetItemString(pyDict, "width"));
-        PyObject *pyY(PyDict_GetItemString(pyDict, "height"));
+        PyObject *pyX(PyDict_GetItemString(pyDict, "x"));
+        PyObject *pyY(PyDict_GetItemString(pyDict, "y"));
 
         if (!pyX || !pyY || !PyLong_Check(pyX) || !PyLong_Check(pyY)) {
             PyErr_SetString(
@@ -306,7 +306,7 @@ namespace EDS {
                 "\"size\": {\"width\": int, \"height\": int}}");
             return false;
         }
-        return PyDict_ToEdsPoint(pyDict, rect.point) &&
-               PyDict_ToEdsSize(pyDict, rect.size);
+        return PyDict_ToEdsPoint(pyPoint, rect.point) &&
+               PyDict_ToEdsSize(pySize, rect.size);
     }
 }
