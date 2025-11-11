@@ -29,6 +29,8 @@ from edsdk.constants.properties import (
     DriveMode,
     EvfOutputDevice,
     PropID as _PropIDEnum,
+    AFMode,
+    EvfAFMode,
 )
 
 
@@ -416,6 +418,9 @@ class CameraController:
         white_balance: Optional[Union[str, int]] = None,
         image_quality: Optional[Union[str, int]] = None,
         drive_mode: Optional[Union[str, int]] = None,
+        manual_focus: Optional[bool] = None,
+        af_mode: Optional[Union[str, int]] = None,
+        evf_af_mode: Optional[Union[str, int]] = None,
         validate: bool = True,
         tolerate_not_supported: bool = False,
     ) -> None:
@@ -443,13 +448,28 @@ class CameraController:
             )
         if drive_mode is not None:
             to_set.append((PropID.DriveMode, _enum_code(DriveMode, drive_mode)))
+        # Manual focus convenience flag takes precedence over af_mode
+        if manual_focus is True:
+            to_set.append((PropID.AFMode, int(AFMode.ManualFocus)))
+        elif af_mode is not None:
+            to_set.append((PropID.AFMode, _enum_code(AFMode, af_mode)))
+        if evf_af_mode is not None:
+            to_set.append((PropID.Evf_AFMode, _enum_code(EvfAFMode, evf_af_mode)))
 
-        # Validate against camera descriptors
+        # Validate against camera descriptors; optionally tolerate AF/AEMode unsupported
         if validate:
+            filtered: List[Tuple[PropID, int]] = []
             for pid, code in to_set:
                 supported = self._get_supported_codes(pid)
                 if supported and code not in supported:
+                    if tolerate_not_supported and pid in (PropID.AEMode, PropID.AFMode):
+                        self._log(
+                            f"Skip unsupported {pid.name} during validate: requested {code}"
+                        )
+                        continue  # drop this setting silently
                     raise ValueError(f"Value {code} not supported for {pid}")
+                filtered.append((pid, code))
+            to_set = filtered
 
         # Apply
         for pid, code in to_set:
@@ -458,8 +478,8 @@ class CameraController:
                 edsdk.SetPropertyData(self._cam, pid, 0, code)
             except Exception as e:
                 # Many Canon bodies do not allow changing AEMode via SDK.
-                # Optionally ignore NOT_SUPPORTED for AEMode only.
-                if tolerate_not_supported and pid == PropID.AEMode:
+                # Optionally ignore NOT_SUPPORTED for AEMode / AFMode when tolerate flag is set.
+                if tolerate_not_supported and pid in (PropID.AEMode, PropID.AFMode):
                     self._log(f"Skip unsupported {pid.name}: {e}")
                     continue
                 raise
@@ -498,6 +518,14 @@ class CameraController:
             "DriveMode": enum_name(
                 DriveMode, edsdk.GetPropertyData(self._cam, PropID.DriveMode, 0)
             ),
+            "AFMode": enum_name(
+                AFMode,
+                self._safe_get_property(PropID.AFMode),
+            ),
+            "EvfAFMode": enum_name(
+                EvfAFMode,
+                self._safe_get_property(PropID.Evf_AFMode),
+            ),
         }
         return props
 
@@ -526,6 +554,9 @@ class CameraController:
                 white_balance=profile.get("WhiteBalance"),
                 image_quality=profile.get("ImageQuality"),
                 drive_mode=profile.get("DriveMode"),
+                af_mode=profile.get("AFMode"),
+                evf_af_mode=profile.get("EvfAFMode"),
+                manual_focus=True if profile.get("AFMode") == "ManualFocus" else None,
                 validate=validate,
             )
         self._log(f"Profile loaded: {path}")
@@ -566,6 +597,14 @@ class CameraController:
             ),
             "DriveMode": _enum_supported_names(
                 PropID.DriveMode, DriveMode, self._get_supported_codes(PropID.DriveMode)
+            ),
+            "AFMode": _enum_supported_names(
+                PropID.AFMode, AFMode, self._get_supported_codes(PropID.AFMode)
+            ),
+            "EvfAFMode": _enum_supported_names(
+                PropID.Evf_AFMode,
+                EvfAFMode,
+                self._get_supported_codes(PropID.Evf_AFMode),
             ),
         }
 
@@ -867,6 +906,14 @@ class CameraController:
             self._async_loop.call_soon_threadsafe(self._async_queue.put_nowait, evt)
         except Exception:
             pass
+
+    # ---------- Helpers ----------
+    def _safe_get_property(self, pid: PropID) -> int:
+        """Return property value or -1 if unsupported (to avoid raising)."""
+        try:
+            return int(edsdk.GetPropertyData(self._cam, pid, 0))  # type: ignore[arg-type]
+        except Exception:
+            return -1
 
 
 def _iso_code_to_string(code: int) -> str:
