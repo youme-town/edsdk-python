@@ -174,6 +174,10 @@ class TimeZone(IntEnum):
     Manaus = 0x0023
     UTC = 0x0100
 
+    # Aliases for misspelled names (backward compatible)
+    Sydney = Syndney
+    Adelaide = Adeladie
+
 
 # PropID.SummerTimeSetting
 class SummerTimeSetting(IntEnum):
@@ -731,6 +735,9 @@ ExposureComponensation = {
     0xD8: "-5",
     0xFFFFFFFF: "Not valid/no settings changes",
 }
+
+# Backward-compatible alias with the correct spelling
+ExposureCompensation = ExposureComponensation
 
 
 # PropID.Bracket

@@ -161,7 +161,7 @@ inline PyObject* GetEnum(const char* moduleName, const char* enumClassName, cons
     PyObject* enumValueObj = PyObject_CallFunction(enumClass, "(i)", enumValue);
     if (!enumValueObj) {
         std::cout << "failed to call enum class " << enumClassName << std::endl;
-        PyErr_Format(PyExc_ValueError, "failed to get enum value %s", enumValue);
+        PyErr_Format(PyExc_ValueError, "failed to get enum value %d", (int)enumValue);
         Py_DECREF(enumClass);
         return nullptr;
     }
@@ -186,7 +186,7 @@ static PyObject* PyEds_InitializeSDK(PyObject *Py_UNUSED(self)) {
 
 PyDoc_STRVAR(PyEds_TerminateSDK__doc__,
 "Terminates use of the libraries.\n"
-"This function muse be called when ending the SDK.\n"
+"This function must be called when ending the SDK.\n"
 "Calling this function releases all resources allocated by the libraries.\n\n"
 ":raises EdsError: Any of the sdk errors.");
 

@@ -1,10 +1,18 @@
+from __future__ import annotations
+
 import os
 import json
 import io
 import asyncio
 import time
 import uuid
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING, Type
+
+# Only imported for type checking to avoid runtime cost if deps not installed
+if TYPE_CHECKING:  # pragma: no cover
+    from PIL import Image
+    import numpy as np
+
 
 # External SDK imports
 import edsdk
@@ -29,7 +37,15 @@ from edsdk.constants.properties import (
     DriveMode,
     EvfOutputDevice,
     PropID as _PropIDEnum,
+    AFMode,
+    EvfAFMode,
 )
+
+
+# Public callback / return type aliases (after imports to satisfy linters)
+ObjectCallback = Callable[["ObjectEvent", "EdsObject"], int]
+PropertyCallback = Callable[["PropertyEvent", "PropID", int], int]
+LiveViewData = Union[bytes, str]
 
 
 # Windows message pumping for EDSDK callbacks
@@ -237,11 +253,11 @@ class CameraController:
         self._log = logger or (print if verbose else (lambda *_args, **_kw: None))
         self._cam: Optional[EdsObject] = None
         self._saved_paths: List[str] = []
-        self._obj_cb: Optional[Callable[[ObjectEvent, EdsObject], int]] = None
-        self._prop_cb: Optional[Callable[[PropertyEvent, PropID, int], int]] = None
+        self._obj_cb: Optional[ObjectCallback] = None
+        self._prop_cb: Optional[PropertyCallback] = None
         self._live_view_on: bool = False
         # asyncio event queue support
-        self._async_queue: Optional[asyncio.Queue] = None
+        self._async_queue: Optional[asyncio.Queue[Dict[str, Union[str, int]]]] = None
         self._async_loop: Optional[asyncio.AbstractEventLoop] = None
         self._async_pumping: bool = False
         self._register_property_events = register_property_events
@@ -308,10 +324,10 @@ class CameraController:
         self._log("Camera session closed")
 
     # ---------- Event handlers ----------
-    def on_object(self, fn: Callable[[ObjectEvent, EdsObject], int]) -> None:
+    def on_object(self, fn: ObjectCallback) -> None:
         self._obj_cb = fn
 
-    def on_property(self, fn: Callable[[PropertyEvent, PropID, int], int]) -> None:
+    def on_property(self, fn: PropertyCallback) -> None:
         self._prop_cb = fn
 
     def _on_object_event(self, event: ObjectEvent, object_handle: EdsObject) -> int:
@@ -416,6 +432,9 @@ class CameraController:
         white_balance: Optional[Union[str, int]] = None,
         image_quality: Optional[Union[str, int]] = None,
         drive_mode: Optional[Union[str, int]] = None,
+        manual_focus: Optional[bool] = None,
+        af_mode: Optional[Union[str, int]] = None,
+        evf_af_mode: Optional[Union[str, int]] = None,
         validate: bool = True,
         tolerate_not_supported: bool = False,
     ) -> None:
@@ -443,13 +462,28 @@ class CameraController:
             )
         if drive_mode is not None:
             to_set.append((PropID.DriveMode, _enum_code(DriveMode, drive_mode)))
+        # Manual focus convenience flag takes precedence over af_mode
+        if manual_focus is True:
+            to_set.append((PropID.AFMode, int(AFMode.ManualFocus)))
+        elif af_mode is not None:
+            to_set.append((PropID.AFMode, _enum_code(AFMode, af_mode)))
+        if evf_af_mode is not None:
+            to_set.append((PropID.Evf_AFMode, _enum_code(EvfAFMode, evf_af_mode)))
 
-        # Validate against camera descriptors
+        # Validate against camera descriptors; optionally tolerate AF/AEMode unsupported
         if validate:
+            filtered: List[Tuple[PropID, int]] = []
             for pid, code in to_set:
                 supported = self._get_supported_codes(pid)
                 if supported and code not in supported:
+                    if tolerate_not_supported and pid in (PropID.AEMode, PropID.AFMode):
+                        self._log(
+                            f"Skip unsupported {pid.name} during validate: requested {code}"
+                        )
+                        continue  # drop this setting silently
                     raise ValueError(f"Value {code} not supported for {pid}")
+                filtered.append((pid, code))
+            to_set = filtered
 
         # Apply
         for pid, code in to_set:
@@ -458,8 +492,8 @@ class CameraController:
                 edsdk.SetPropertyData(self._cam, pid, 0, code)
             except Exception as e:
                 # Many Canon bodies do not allow changing AEMode via SDK.
-                # Optionally ignore NOT_SUPPORTED for AEMode only.
-                if tolerate_not_supported and pid == PropID.AEMode:
+                # Optionally ignore NOT_SUPPORTED for AEMode / AFMode when tolerate flag is set.
+                if tolerate_not_supported and pid in (PropID.AEMode, PropID.AFMode):
                     self._log(f"Skip unsupported {pid.name}: {e}")
                     continue
                 raise
@@ -498,6 +532,14 @@ class CameraController:
             "DriveMode": enum_name(
                 DriveMode, edsdk.GetPropertyData(self._cam, PropID.DriveMode, 0)
             ),
+            "AFMode": enum_name(
+                AFMode,
+                self._safe_get_property(PropID.AFMode),
+            ),
+            "EvfAFMode": enum_name(
+                EvfAFMode,
+                self._safe_get_property(PropID.Evf_AFMode),
+            ),
         }
         return props
 
@@ -526,6 +568,9 @@ class CameraController:
                 white_balance=profile.get("WhiteBalance"),
                 image_quality=profile.get("ImageQuality"),
                 drive_mode=profile.get("DriveMode"),
+                af_mode=profile.get("AFMode"),
+                evf_af_mode=profile.get("EvfAFMode"),
+                manual_focus=True if profile.get("AFMode") == "ManualFocus" else None,
                 validate=validate,
             )
         self._log(f"Profile loaded: {path}")
@@ -566,6 +611,14 @@ class CameraController:
             ),
             "DriveMode": _enum_supported_names(
                 PropID.DriveMode, DriveMode, self._get_supported_codes(PropID.DriveMode)
+            ),
+            "AFMode": _enum_supported_names(
+                PropID.AFMode, AFMode, self._get_supported_codes(PropID.AFMode)
+            ),
+            "EvfAFMode": _enum_supported_names(
+                PropID.Evf_AFMode,
+                EvfAFMode,
+                self._get_supported_codes(PropID.Evf_AFMode),
             ),
         }
 
@@ -666,7 +719,7 @@ class CameraController:
         retry: int = 0,
         retry_delay: float = 0.3,
         keep_files: bool = False,
-    ) -> List:
+    ) -> List[Image.Image]:
         """Capture and return a list of PIL Images (requires Pillow)."""
         try:
             from PIL import Image  # type: ignore
@@ -695,7 +748,7 @@ class CameraController:
         retry: int = 0,
         retry_delay: float = 0.3,
         keep_files: bool = False,
-    ) -> List:
+    ) -> List["np.ndarray"]:
         """Capture and return a list of numpy arrays (requires numpy)."""
         try:
             import numpy as np  # type: ignore
@@ -736,43 +789,74 @@ class CameraController:
         self._live_view_on = False
         self._log("Live view stopped")
 
-    def grab_live_view_frame(
-        self, save_path: Optional[str] = None
-    ) -> Union[bytes, str]:
+    def grab_live_view_frame(self, save_path: Optional[str] = None) -> LiveViewData:
         if self._cam is None:
             raise RuntimeError("Camera session not open")
         if not self._live_view_on:
             self.start_live_view()
             # give camera a brief moment to deliver first frame
             time.sleep(0.1)
+        # Retry loop for transient OBJECT_NOTREADY / DEVICE_BUSY conditions
+        MAX_ATTEMPTS = 10
+        RETRY_DELAY = 0.07  # ~70ms between attempts
+        ERR_OBJECT_NOT_READY = 0x0000A102
+        ERR_DEVICE_BUSY = 0x00000081
+        last_exc: Optional[Exception] = None
 
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
-            out_stream = edsdk.CreateFileStream(
-                save_path, FileCreateDisposition.CreateAlways, Access.ReadWrite
-            )
-            evf_image = edsdk.CreateEvfImageRef(out_stream)
-            edsdk.DownloadEvfImage(self._cam, evf_image)
-            self._log(f"Live view saved: {save_path}")
-            return save_path
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                if save_path is not None:
+                    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+                    out_stream = edsdk.CreateFileStream(
+                        save_path, FileCreateDisposition.CreateAlways, Access.ReadWrite
+                    )
+                    evf_image = edsdk.CreateEvfImageRef(out_stream)
+                    edsdk.DownloadEvfImage(self._cam, evf_image)
+                    self._log(
+                        f"Live view saved: {save_path} (attempt {attempt}/{MAX_ATTEMPTS})"
+                    )
+                    return save_path
+                # Fallback: save to temp file and read bytes
+                tmp_path = os.path.join(self.save_dir, f"evf_{uuid.uuid4().hex}.jpg")
+                out_stream = edsdk.CreateFileStream(
+                    tmp_path, FileCreateDisposition.CreateAlways, Access.ReadWrite
+                )
+                evf_image = edsdk.CreateEvfImageRef(out_stream)
+                edsdk.DownloadEvfImage(self._cam, evf_image)
+                with open(tmp_path, "rb") as f:
+                    data = f.read()
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+                self._log(
+                    f"Live view grabbed: {len(data)} bytes (attempt {attempt}/{MAX_ATTEMPTS})"
+                )
+                return data
+            except Exception as e:  # Catch SDK error
+                code = getattr(e, "code", None)
+                msg = str(e)
+                # Detect transient errors
+                is_transient = False
+                if code in (ERR_OBJECT_NOT_READY, ERR_DEVICE_BUSY):
+                    is_transient = True
+                elif "OBJECT_NOTREADY" in msg or "DEVICE_BUSY" in msg:
+                    is_transient = True
+                if not is_transient or attempt >= MAX_ATTEMPTS:
+                    last_exc = e
+                    break
+                # Backoff and allow Windows message pump to progress
+                self._log(
+                    f"Live view retry {attempt}/{MAX_ATTEMPTS} after transient error: {msg}"
+                )
+                _pump_messages_once()
+                time.sleep(RETRY_DELAY)
+                continue
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Unexpected live view failure without exception")
 
-        # Fallback: save to temp file and read bytes
-        tmp_path = os.path.join(self.save_dir, f"evf_{uuid.uuid4().hex}.jpg")
-        out_stream = edsdk.CreateFileStream(
-            tmp_path, FileCreateDisposition.CreateAlways, Access.ReadWrite
-        )
-        evf_image = edsdk.CreateEvfImageRef(out_stream)
-        edsdk.DownloadEvfImage(self._cam, evf_image)
-        with open(tmp_path, "rb") as f:
-            data = f.read()
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-        self._log(f"Live view grabbed: {len(data)} bytes")
-        return data
-
-    def grab_live_view_pil(self):
+    def grab_live_view_pil(self) -> Image.Image:
         """Grab one live-view frame and return as PIL Image (requires Pillow)."""
         try:
             from PIL import Image  # type: ignore
@@ -790,7 +874,7 @@ class CameraController:
         img.load()
         return img
 
-    def grab_live_view_numpy(self):
+    def grab_live_view_numpy(self) -> "np.ndarray":
         """Grab one live-view frame and return as numpy array (requires numpy)."""
         try:
             import numpy as np  # type: ignore
@@ -835,6 +919,14 @@ class CameraController:
         except Exception:
             pass
 
+    # ---------- Helpers ----------
+    def _safe_get_property(self, pid: PropID) -> int:
+        """Return property value or -1 if unsupported (to avoid raising)."""
+        try:
+            return int(edsdk.GetPropertyData(self._cam, pid, 0))  # type: ignore[arg-type]
+        except Exception:
+            return -1
+
 
 def _iso_code_to_string(code: int) -> str:
     try:
@@ -848,7 +940,7 @@ def _iso_code_to_string(code: int) -> str:
     return str(code)
 
 
-def classify_error(exc: Exception) -> Dict[str, Union[int, str]]:
+def classify_error(exc: Exception) -> Dict[str, Union[int, str, None]]:
     """Return a structured error info for EdsError exceptions.
     Includes SDK error code and human-readable message from edsdk_utils.
     """
@@ -864,7 +956,7 @@ def classify_error(exc: Exception) -> Dict[str, Union[int, str]]:
     return {"message": str(exc)}
 
 
-def _enum_code(enum_cls, value: Union[str, int]) -> int:
+def _enum_code(enum_cls: Type[object], value: Union[str, int]) -> int:
     if isinstance(value, int):
         return int(value)
     key = str(value).strip()
@@ -896,7 +988,9 @@ def _enum_code(enum_cls, value: Union[str, int]) -> int:
     raise ValueError(f"Unsupported value '{value}' for {enum_cls.__name__}")
 
 
-def _enum_supported_names(pid: _PropIDEnum, enum_cls, codes: List[int]) -> List[str]:
+def _enum_supported_names(
+    pid: _PropIDEnum, enum_cls: Type[object], codes: List[int]
+) -> List[str]:
     names: List[str] = []
     if not codes:
         # if descriptors not available, return all enum names as hint

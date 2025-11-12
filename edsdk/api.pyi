@@ -14,9 +14,7 @@ from edsdk.constants import (
     TargetImageType,
 )
 
-
 class EdsObject: ...
-
 
 def InitializeSDK() -> None:
     """Initializes the libraries
@@ -27,16 +25,14 @@ def InitializeSDK() -> None:
     """
     ...
 
-
 def TerminateSDK() -> None:
     """Terminates use of the libraries
-    This function muse be called when ending the SDK.
+    This function must be called when ending the SDK.
     Calling this function releases all resources allocated by the libraries.
 
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def GetChildCount(parent: EdsObject) -> int:
     """Gets the number of child objects of the designated object.
@@ -48,7 +44,6 @@ def GetChildCount(parent: EdsObject) -> int:
     """
     ...
 
-
 def GetChildAtIndex(parent: EdsObject, index: int) -> EdsObject:
     """Gets an indexed child object of the designated object
 
@@ -59,7 +54,6 @@ def GetChildAtIndex(parent: EdsObject, index: int) -> EdsObject:
     """
     ...
 
-
 def GetParent(item: EdsObject) -> EdsObject:
     """Gets the parent object of the designated object.
 
@@ -68,7 +62,6 @@ def GetParent(item: EdsObject) -> EdsObject:
     :return EdsObject: the parent object.
     """
     ...
-
 
 def GetPropertySize(
     camera_or_image: EdsObject, property_id: PropID, param: int = 0
@@ -85,7 +78,6 @@ def GetPropertySize(
     """
     ...
 
-
 def GetPropertyData(
     camera_or_image: EdsObject, property_id: PropID, param: int = 0
 ) -> Any:
@@ -99,7 +91,6 @@ def GetPropertyData(
     :return Any: The property value.
     """
     ...
-
 
 def SetPropertyData(
     camera_or_image: EdsObject, property_id: PropID, param: int, data: Any
@@ -115,7 +106,6 @@ def SetPropertyData(
     """
     ...
 
-
 def GetPropertyDesc(camera: EdsObject, property_id: PropID) -> Dict[str, Any]:
     """Gets a list of property data that can be set for the object
         designated in inRef, as well as maximum and minimum values.
@@ -129,7 +119,6 @@ def GetPropertyDesc(camera: EdsObject, property_id: PropID) -> Dict[str, Any]:
     """
     ...
 
-
 def GetCameraList() -> EdsObject:
     """Gets camera list objects.
 
@@ -137,7 +126,6 @@ def GetCameraList() -> EdsObject:
     :return EdsObject: the camera-list.
     """
     ...
-
 
 def GetDeviceInfo(camera: EdsObject) -> Dict[str, Any]:
     """Gets device information, such as the device name.
@@ -152,7 +140,6 @@ def GetDeviceInfo(camera: EdsObject) -> Dict[str, Any]:
     """
     ...
 
-
 def OpenSession(camera: EdsObject) -> None:
     """Establishes a logical connection with a remote camera.
     Use this API after getting the camera's EdsCamera object.
@@ -162,7 +149,6 @@ def OpenSession(camera: EdsObject) -> None:
     """
     ...
 
-
 def CloseSession(camera: EdsObject) -> None:
     """Closes a logical connection with a remote camera
 
@@ -170,7 +156,6 @@ def CloseSession(camera: EdsObject) -> None:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def SendCommand(camera: EdsObject, command: CameraCommand, param: int = 0) -> None:
     """Sends a command such as "Shoot" to a remote camera.
@@ -196,7 +181,6 @@ def SendStatusCommand(
     """
     ...
 
-
 def SetCapacity(camera: EdsObject, capacity: Dict[str, Any]) -> None:
     """Sets the remaining HDD capacity on the host computer
             (excluding the portion from image transfer),
@@ -216,7 +200,6 @@ def SetCapacity(camera: EdsObject, capacity: Dict[str, Any]) -> None:
     """
     ...
 
-
 def GetVolumeInfo(volume: EdsObject) -> Dict[str, Any]:
     """Gets volume information for a memory card in the camera.
 
@@ -226,7 +209,6 @@ def GetVolumeInfo(volume: EdsObject) -> Dict[str, Any]:
     """
     ...
 
-
 def FormatVolume(volume: EdsObject) -> None:
     """Formats volumes of memory cards in a camera.
 
@@ -234,7 +216,6 @@ def FormatVolume(volume: EdsObject) -> None:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def GetDirectoryItemInfo(dir_item: EdsObject) -> Dict[str, Any]:
     """Gets information about the directory or file objects
@@ -245,7 +226,6 @@ def GetDirectoryItemInfo(dir_item: EdsObject) -> Dict[str, Any]:
     :return Dict[str, Any]: Information of the directory item.
     """
     ...
-
 
 def DeleteDirectoryItem(dir_item: EdsObject) -> None:
     """Deletes a camera folder or file.
@@ -258,7 +238,6 @@ def DeleteDirectoryItem(dir_item: EdsObject) -> None:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def Download(dir_item: EdsObject, size: int, stream: EdsObject) -> None:
     """Downloads a file on a remote camera
@@ -274,7 +253,6 @@ def Download(dir_item: EdsObject, size: int, stream: EdsObject) -> None:
     """
     ...
 
-
 def DownloadCancel(dir_item: EdsObject) -> None:
     """Must be executed when downloading of a directory item is canceled.
     Calling this API makes the camera cancel file transmission.
@@ -285,7 +263,6 @@ def DownloadCancel(dir_item: EdsObject) -> None:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def DownloadComplete(dir_item: EdsObject) -> None:
     """Must be called when downloading of directory items is complete.
@@ -298,7 +275,6 @@ def DownloadComplete(dir_item: EdsObject) -> None:
     """
     ...
 
-
 def DownloadThumbnail(dir_item: EdsObject) -> EdsObject:
     """Extracts and downloads thumbnail information from image files in a camera.
     Thumbnail information in the camera's image files is downloaded
@@ -310,7 +286,6 @@ def DownloadThumbnail(dir_item: EdsObject) -> EdsObject:
     :return EdsObject: The stream.
     """
     ...
-
 
 def GetAttribute(dir_item: EdsObject) -> int:
     """Gets attributes of files on a camera.
@@ -325,7 +300,6 @@ def GetAttribute(dir_item: EdsObject) -> int:
     """
     ...
 
-
 def SetAttribute(dir_item: EdsObject, file_attributes: int) -> int:
     """Changes attributes of files on a camera.
 
@@ -336,7 +310,6 @@ def SetAttribute(dir_item: EdsObject, file_attributes: int) -> int:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def CreateFileStream(
     filename: str, disposition: FileCreateDisposition, access: Access
@@ -355,7 +328,6 @@ def CreateFileStream(
     """
     ...
 
-
 def CreateMemoryStream(buffer_size: int) -> EdsObject:
     """Creates a stream in the memory of a host computer.
     In the case of writing in excess of the allocated buffer size,
@@ -367,9 +339,8 @@ def CreateMemoryStream(buffer_size: int) -> EdsObject:
     """
     ...
 
-
 def CreateMemoryStreamFromPointer(
-    buffer: Union[bytes, bytearray, memoryview]
+    buffer: Union[bytes, bytearray, memoryview],
 ) -> EdsObject:
     """Creates a stream from the memory buffer you prepare.
     Unlike the buffer size of streams created by means of EdsCreateMemoryStream,
@@ -381,7 +352,6 @@ def CreateMemoryStreamFromPointer(
     """
     ...
 
-
 def GetPosition(stream_or_image: EdsObject) -> int:
     """Gets the current read or write position of the stream
         (that is, the file position indicator).
@@ -392,7 +362,6 @@ def GetPosition(stream_or_image: EdsObject) -> int:
     """
     ...
 
-
 def GetLength(stream_or_image: EdsObject) -> int:
     """Gets the stream size.
 
@@ -401,7 +370,6 @@ def GetLength(stream_or_image: EdsObject) -> int:
     :return int: The length of the stream.
     """
     ...
-
 
 def CopyData(
     in_stream_or_image: EdsObject, write_size: int, out_stream_or_image: EdsObject
@@ -418,7 +386,6 @@ def CopyData(
     :param EdsObject out_stream_or_image: The output stream or image.
     """
     ...
-
 
 def SetProgressCallback(
     camera: EdsObject, callback: Callable, option: ProgressOption
@@ -445,7 +412,6 @@ def SetProgressCallback(
     """
     ...
 
-
 def CreateImageRef(stream: EdsObject) -> EdsObject:
     """Creates an image object from an image file.
     Without modification, stream objects cannot be worked with as images.
@@ -460,7 +426,6 @@ def CreateImageRef(stream: EdsObject) -> EdsObject:
     :return EdsObject: The image.
     """
     ...
-
 
 def GetImageInfo(image: EdsObject, image_source: ImageSource) -> Dict[str, Any]:
     """Gets image information from a designated image object.
@@ -484,10 +449,12 @@ def GetImageInfo(image: EdsObject, image_source: ImageSource) -> Dict[str, Any]:
     """
     ...
 
-
 def GetImage(
-    image: EdsObject, image_source: ImageSource, image_type: TargetImageType,
-    source_rect: Dict[str, Dict[str, int]], dest_size: Dict[str, int]
+    image: EdsObject,
+    image_source: ImageSource,
+    image_type: TargetImageType,
+    source_rect: Dict[str, Dict[str, int]],
+    dest_size: Dict[str, int],
 ) -> EdsObject:
     """Gets designated image data from an image file, in the form of a
         designated rectangle.
@@ -518,7 +485,6 @@ def GetImage(
     """
     ...
 
-
 def CreateEvfImageRef(stream: EdsObject) -> EdsObject:
     """Creates an object used to get the live view image data set.
 
@@ -528,9 +494,8 @@ def CreateEvfImageRef(stream: EdsObject) -> EdsObject:
     """
     ...
 
-
 def DownloadEvfImage(camera: EdsObject, evf_image: EdsObject) -> None:
-    """"Downloads the live view image data set for a camera currently in live view mode.
+    """ "Downloads the live view image data set for a camera currently in live view mode.
     Live view can be started by using the property ID:PropID.Evf_OutputDevice and
     data:OutputDevice.PC to call SetPropertyData.
     In addition to image data, information such as zoom, focus position, and histogram data
@@ -545,7 +510,6 @@ def DownloadEvfImage(camera: EdsObject, evf_image: EdsObject) -> None:
     """
     ...
 
-
 def SetCameraAddedHandler(callback: Callable) -> None:
     """Registers a callback function for when a camera is detected.
 
@@ -554,7 +518,6 @@ def SetCameraAddedHandler(callback: Callable) -> None:
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def SetPropertyEventHandler(
     camera: EdsObject, event: PropertyEvent, callback: Callable
@@ -570,7 +533,6 @@ def SetPropertyEventHandler(
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def SetObjectEventHandler(
     camera: EdsObject, event: ObjectEvent, callback: Callable
@@ -589,7 +551,6 @@ def SetObjectEventHandler(
     """
     ...
 
-
 def SetCameraStateEventHandler(
     camera: EdsObject, event: StateEvent, callback: Callable
 ) -> None:
@@ -604,7 +565,6 @@ def SetCameraStateEventHandler(
     :raises EdsError: Any of the sdk errors.
     """
     ...
-
 
 def GetEvent() -> None:
     """This function acquires an event.
