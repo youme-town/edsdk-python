@@ -1,10 +1,18 @@
+from __future__ import annotations
+
 import os
 import json
 import io
 import asyncio
 import time
 import uuid
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING, Type
+
+# Only imported for type checking to avoid runtime cost if deps not installed
+if TYPE_CHECKING:  # pragma: no cover
+    from PIL import Image
+    import numpy as np
+
 
 # External SDK imports
 import edsdk
@@ -32,6 +40,12 @@ from edsdk.constants.properties import (
     AFMode,
     EvfAFMode,
 )
+
+
+# Public callback / return type aliases (after imports to satisfy linters)
+ObjectCallback = Callable[["ObjectEvent", "EdsObject"], int]
+PropertyCallback = Callable[["PropertyEvent", "PropID", int], int]
+LiveViewData = Union[bytes, str]
 
 
 # Windows message pumping for EDSDK callbacks
@@ -239,11 +253,11 @@ class CameraController:
         self._log = logger or (print if verbose else (lambda *_args, **_kw: None))
         self._cam: Optional[EdsObject] = None
         self._saved_paths: List[str] = []
-        self._obj_cb: Optional[Callable[[ObjectEvent, EdsObject], int]] = None
-        self._prop_cb: Optional[Callable[[PropertyEvent, PropID, int], int]] = None
+        self._obj_cb: Optional[ObjectCallback] = None
+        self._prop_cb: Optional[PropertyCallback] = None
         self._live_view_on: bool = False
         # asyncio event queue support
-        self._async_queue: Optional[asyncio.Queue] = None
+        self._async_queue: Optional[asyncio.Queue[Dict[str, Union[str, int]]]] = None
         self._async_loop: Optional[asyncio.AbstractEventLoop] = None
         self._async_pumping: bool = False
         self._register_property_events = register_property_events
@@ -310,10 +324,10 @@ class CameraController:
         self._log("Camera session closed")
 
     # ---------- Event handlers ----------
-    def on_object(self, fn: Callable[[ObjectEvent, EdsObject], int]) -> None:
+    def on_object(self, fn: ObjectCallback) -> None:
         self._obj_cb = fn
 
-    def on_property(self, fn: Callable[[PropertyEvent, PropID, int], int]) -> None:
+    def on_property(self, fn: PropertyCallback) -> None:
         self._prop_cb = fn
 
     def _on_object_event(self, event: ObjectEvent, object_handle: EdsObject) -> int:
@@ -705,7 +719,7 @@ class CameraController:
         retry: int = 0,
         retry_delay: float = 0.3,
         keep_files: bool = False,
-    ) -> List:
+    ) -> List[Image.Image]:
         """Capture and return a list of PIL Images (requires Pillow)."""
         try:
             from PIL import Image  # type: ignore
@@ -734,7 +748,7 @@ class CameraController:
         retry: int = 0,
         retry_delay: float = 0.3,
         keep_files: bool = False,
-    ) -> List:
+    ) -> List["np.ndarray"]:
         """Capture and return a list of numpy arrays (requires numpy)."""
         try:
             import numpy as np  # type: ignore
@@ -775,9 +789,7 @@ class CameraController:
         self._live_view_on = False
         self._log("Live view stopped")
 
-    def grab_live_view_frame(
-        self, save_path: Optional[str] = None
-    ) -> Union[bytes, str]:
+    def grab_live_view_frame(self, save_path: Optional[str] = None) -> LiveViewData:
         if self._cam is None:
             raise RuntimeError("Camera session not open")
         if not self._live_view_on:
@@ -844,7 +856,7 @@ class CameraController:
             raise last_exc
         raise RuntimeError("Unexpected live view failure without exception")
 
-    def grab_live_view_pil(self):
+    def grab_live_view_pil(self) -> Image.Image:
         """Grab one live-view frame and return as PIL Image (requires Pillow)."""
         try:
             from PIL import Image  # type: ignore
@@ -862,7 +874,7 @@ class CameraController:
         img.load()
         return img
 
-    def grab_live_view_numpy(self):
+    def grab_live_view_numpy(self) -> "np.ndarray":
         """Grab one live-view frame and return as numpy array (requires numpy)."""
         try:
             import numpy as np  # type: ignore
@@ -928,7 +940,7 @@ def _iso_code_to_string(code: int) -> str:
     return str(code)
 
 
-def classify_error(exc: Exception) -> Dict[str, Union[int, str]]:
+def classify_error(exc: Exception) -> Dict[str, Union[int, str, None]]:
     """Return a structured error info for EdsError exceptions.
     Includes SDK error code and human-readable message from edsdk_utils.
     """
@@ -944,7 +956,7 @@ def classify_error(exc: Exception) -> Dict[str, Union[int, str]]:
     return {"message": str(exc)}
 
 
-def _enum_code(enum_cls, value: Union[str, int]) -> int:
+def _enum_code(enum_cls: Type[object], value: Union[str, int]) -> int:
     if isinstance(value, int):
         return int(value)
     key = str(value).strip()
@@ -976,7 +988,9 @@ def _enum_code(enum_cls, value: Union[str, int]) -> int:
     raise ValueError(f"Unsupported value '{value}' for {enum_cls.__name__}")
 
 
-def _enum_supported_names(pid: _PropIDEnum, enum_cls, codes: List[int]) -> List[str]:
+def _enum_supported_names(
+    pid: _PropIDEnum, enum_cls: Type[object], codes: List[int]
+) -> List[str]:
     names: List[str] = []
     if not codes:
         # if descriptors not available, return all enum names as hint
