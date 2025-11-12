@@ -2,7 +2,8 @@ import os
 from setuptools import setup, Extension, find_packages
 
 package_name = "edsdk-python"
-version = "0.1"
+# バージョンを 3.13 対応メタデータ追加のために更新
+version = "0.1.1"
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -80,7 +81,8 @@ setup(
             ],
         )
     ],
-    python_requires=">=3.8.0",
+    # 3.13 での動作確認済み。最低サポートは 3.8 継続。
+    python_requires=">=3.8",
     long_description_content_type="text/markdown",
     classifiers=[
         "License :: OSI Approved :: MIT License",
@@ -92,6 +94,9 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: System :: Hardware :: Universal Serial Bus (USB)",
         "Typing :: Stubs Only",

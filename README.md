@@ -2,9 +2,13 @@
 
 Python wrapper for Canon EOS Digital Software Development Kit, aka EDSDK.
 
+Supported Python versions: 3.8 – 3.13 (CPython, Windows 64-bit). Python 3.13 での動作を確認済みです。
+
 Currently, it supports Windows only. But it shouldn't be difficult to adapt it for macOS.
 
 ## Installation and usage
+
+If you need wheels for Python 3.13, build locally as described below or wait for the published release (version >= 0.1.1).
 
 ## Quick install (core only)
 
@@ -96,10 +100,23 @@ You can comment out `Unknown` or rename it to `UNKNOWN` (or whatever you want) o
 
 ## Build the library
 
-Run:
+Run (this will compile the C++ extension against your current Python, e.g. 3.13):
 
 ```cmd
 pip install .
+```
+
+To generate a wheel (recommended for distribution / reuse):
+
+```cmd
+pip install build
+python -m build --wheel
+```
+
+You will find the wheel under `dist/` (e.g. `edsdk_python-0.1.1-cp313-cp313-win_amd64.whl`). Install it with:
+
+```cmd
+pip install dist\edsdk_python-0.1.1-cp313-cp313-win_amd64.whl
 ```
 
 ## Troubleshooting
