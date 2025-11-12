@@ -11,6 +11,7 @@ AEモードは多くの機種でSDKから変更不可のため指定していま
 
 from edsdk.camera_controller import CameraController
 import rawtopng
+import cv2
 
 # プロパティイベント警告を抑制したい場合は register_property_events=False を指定
 with CameraController(
@@ -68,3 +69,13 @@ with CameraController(
         png_path = raw_path.rsplit(".", 1)[0] + ".png"
         rawtopng.RawtoPNG(raw_path, png_path)
         print("Converted to PNG:", png_path)
+
+    # example6: 撮影してOpenCV形式で取得、表示
+    raw_paths = cam.capture(shots=1)
+    for raw_path in raw_paths:
+        cv_img = rawtopng.RawtoPNGCv2(raw_path)
+        # cv_img のdepthやshapeを確認したい場合:
+        print(cv_img.dtype, cv_img.shape)
+        cv2.imshow("Captured Image", cv_img)
+        cv2.waitKey(1000)
+        cv2.destroyAllWindows()
