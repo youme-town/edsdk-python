@@ -99,7 +99,6 @@ typedef enum
 
 You can comment out `Unknown` or rename it to `UNKNOWN` (or whatever you want) or it won't compile on Windows.
 
-
 ## Build the library
 
 Run (this will compile the C++ extension against your current Python, e.g. 3.13):
