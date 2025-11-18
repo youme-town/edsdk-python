@@ -9,6 +9,13 @@
 #include <iostream>
 #include <map>
 
+// Platform-specific macros
+#ifdef __MACOS__
+    // macOS doesn't have memcpy_s, use standard memcpy
+    #define memcpy_s(dest, destsz, src, count) memcpy(dest, src, count)
+    #include <CoreFoundation/CoreFoundation.h>
+#endif
+
 
 typedef struct {
     PyObject_HEAD
@@ -221,7 +228,7 @@ static PyObject* PyEds_GetChildCount(PyObject *Py_UNUSED(self), PyObject *args) 
     if (!edsObj) {
         return nullptr;
     }
-    unsigned long childCount;
+    EdsUInt32 childCount;
     unsigned long retVal(EdsGetChildCount(edsObj->edsObj, &childCount));
     PyCheck_EDSERROR(retVal);
     return PyLong_FromUnsignedLong(childCount);
@@ -300,7 +307,7 @@ static PyObject* PyEds_GetPropertySize(PyObject *Py_UNUSED(self), PyObject *args
         return nullptr;
     }
     EdsDataType dataType;
-    unsigned long dataSize;
+    EdsUInt32 dataSize;
 
     unsigned long retVal(EdsGetPropertySize(edsObj->edsObj, propertyID, param, &dataType, &dataSize));
     PyCheck_EDSERROR(retVal);
@@ -341,7 +348,7 @@ static PyObject* PyEds_GetPropertyData(PyObject *Py_UNUSED(self), PyObject *args
     }
 
     EdsDataType dataType;
-    unsigned long dataSize;
+    EdsUInt32 dataSize;
 
     unsigned long retVal(EdsGetPropertySize(edsObj->edsObj, propertyID, param, &dataType, &dataSize));
     PyCheck_EDSERROR(retVal);
@@ -521,11 +528,11 @@ static PyObject* PyEds_GetPropertyData(PyObject *Py_UNUSED(self), PyObject *args
         case kEdsDataType_UInt32_Array:
         case kEdsDataType_Rational_Array:{
             PyErr_Format(PyExc_NotImplementedError, "unable to get the property %ls", propertyID);
-            delete propertyData;
+            delete[] static_cast<uint8_t*>(propertyData);
             return nullptr;
         }
     }
-    delete propertyData;
+    delete[] static_cast<uint8_t*>(propertyData);
     return pyPropertyData;
 }
 
@@ -554,7 +561,7 @@ static PyObject* PyEds_SetPropertyData(PyObject *Py_UNUSED(self), PyObject *args
     }
 
     EdsDataType dataType;
-    unsigned long dataSize;
+    EdsUInt32 dataSize;
     unsigned long retVal(EdsGetPropertySize(edsObj->edsObj, propertyID, param, &dataType, &dataSize));
     PyCheck_EDSERROR(retVal);
 
@@ -956,9 +963,9 @@ static PyObject* PyEds_SetCapacity(PyObject *Py_UNUSED(self), PyObject *args){
         return nullptr;
     }
     EdsCapacity capacity = {
-        PyLong_AsLong(pyNumberOfFreeClusters),
-        PyLong_AsLong(pyBytesPerSector),
-        PyObject_IsTrue(pyReset),
+        static_cast<EdsInt32>(PyLong_AsLong(pyNumberOfFreeClusters)),
+        static_cast<EdsInt32>(PyLong_AsLong(pyBytesPerSector)),
+        static_cast<EdsInt32>(PyObject_IsTrue(pyReset)),
     };
     unsigned long retVal(EdsSetCapacity(cam->edsObj, capacity));
     PyCheck_EDSERROR(retVal);
@@ -1382,6 +1389,43 @@ static PyObject* PyEds_CreateFileStreamEx(PyObject *Py_UNUSED(self), PyObject *a
         return nullptr;
     }
 
+    EdsStreamRef fileStream;
+    unsigned long retVal;
+
+#ifdef __MACOS__
+    // macOS: Convert Python string to UTF-8, then create CFURL
+    PyObject* pyBytesFilename = PyUnicode_AsUTF8String(pyFilename);
+    if (pyBytesFilename == nullptr) {
+        return nullptr;
+    }
+    const char* utf8Filename = PyBytes_AsString(pyBytesFilename);
+    if (utf8Filename == nullptr) {
+        Py_DECREF(pyBytesFilename);
+        return nullptr;
+    }
+
+    CFURLRef fileURL = CFURLCreateFromFileSystemRepresentation(
+        kCFAllocatorDefault,
+        reinterpret_cast<const UInt8*>(utf8Filename),
+        strlen(utf8Filename),
+        false  // isDirectory
+    );
+    Py_DECREF(pyBytesFilename);
+
+    if (fileURL == nullptr) {
+        PyErr_SetString(PyExc_ValueError, "Could not create file URL");
+        return nullptr;
+    }
+
+    retVal = EdsCreateFileStreamEx(
+        fileURL,
+        static_cast<EdsFileCreateDisposition>(createDisposition),
+        static_cast<EdsAccess>(desiredAccess),
+        &fileStream);
+
+    CFRelease(fileURL);
+#else
+    // Windows: Use wide character strings
     Py_ssize_t filenameLen(PyUnicode_GET_LENGTH(pyFilename));
     wchar_t *filenameEncoded(new (std::nothrow) wchar_t[filenameLen + 1]);
     if (filenameEncoded == nullptr) {
@@ -1398,14 +1442,15 @@ static PyObject* PyEds_CreateFileStreamEx(PyObject *Py_UNUSED(self), PyObject *a
         return nullptr;
     }
 
-    EdsStreamRef fileStream;
-    unsigned long retVal(EdsCreateFileStreamEx(
+    retVal = EdsCreateFileStreamEx(
         filenameEncoded,
         static_cast<EdsFileCreateDisposition>(createDisposition),
         static_cast<EdsAccess>(desiredAccess),
-        &fileStream));
+        &fileStream);
 
     delete[] filenameEncoded;
+#endif
+
     PyCheck_EDSERROR(retVal);
 
     PyObject *pyFileStream = PyEdsObject_New(fileStream);
