@@ -2,9 +2,11 @@
 
 Python wrapper for Canon EOS Digital Software Development Kit, aka EDSDK.
 
-Supported Python versions: 3.8 – 3.13 (CPython, Windows 64-bit). Python 3.13 での動作を確認済みです。
+Supported Python versions: 3.8 – 3.13 (CPython).
 
-Currently, it supports Windows only. But it shouldn't be difficult to adapt it for macOS.
+Supported Platforms:
+- **Windows** (64-bit): Fully tested and supported
+- **macOS**: Supported (requires EDSDK for macOS from Canon)
 
 ## Obtain the EDSDK from Canon
 
@@ -23,6 +25,8 @@ Once you were granted access - this may take a few days - download the latest ve
 ## Copy the EDSDK Headers and Libraries
 
 You should now have access to a zip file containing the file you need to build this library.
+
+### For Windows:
 
 Unzip the file and copy the following folders inside the `dependencies` folder of this project:
 
@@ -44,12 +48,62 @@ dependencies/EDSDK_64/Library/EDSDK.lib
 
 Any additional files aren't needed, but won't hurt either in case you copied the entire folders.
 
+### For macOS:
 
-## Modify EDSDKTypes.h
+Unzip the macOS EDSDK package and copy the header files to the `dependencies` folder:
+
+1. Copy `EDSDK/Header` to `dependencies/EDSDK/Header`
+
+For the framework, you have two options:
+
+**Option 1: Bundle with package (Recommended)**
+
+Copy the framework to BOTH locations:
+```bash
+# For building (required)
+cp -r /path/to/EDSDK/Framework dependencies/EDSDK/Framework
+
+# For bundling with the package (makes it self-contained)
+mkdir -p edsdk/Framework
+cp -r /path/to/EDSDK/Framework/EDSDK.framework edsdk/Framework/
+```
+
+This will include the framework in your Python package, making it completely self-contained. No environment variables needed!
+
+**Option 2: System-wide installation**
+
+Install the framework to the system frameworks directory:
+```bash
+sudo cp -r /path/to/EDSDK/Framework/EDSDK.framework /Library/Frameworks/
+```
+
+Then only copy headers for building:
+```bash
+cp -r /path/to/EDSDK/Header dependencies/EDSDK/Header
+mkdir -p dependencies/EDSDK/Framework  # Create empty dir for build
+cp -r /path/to/EDSDK/Framework dependencies/EDSDK/Framework/
+```
+
+Your dependencies folder structure should look like this:
+
+```text
+dependencies/EDSDK/Header/EDSDK.h
+dependencies/EDSDK/Header/EDSDKErrors.h
+dependencies/EDSDK/Header/EDSDKTypes.h
+dependencies/EDSDK/Framework/EDSDK.framework/  # For building
+
+# If using Option 1, also:
+edsdk/Framework/EDSDK.framework/  # Bundled with package
+```
+
+
+## Modify EDSDKTypes.h (Windows only)
+
+**Note: This step is only required on Windows.**
 
 This file contains an enum definition, called `Unknown`, which collides with a DEFINE in the `Windows.h` header.
 
-Therefore needs to be renamed.
+Therefore it needs to be renamed.
 
 ```c
 typedef enum
@@ -69,29 +123,47 @@ You can comment out `Unknown` or rename it to `UNKNOWN` (or whatever you want) o
 
 Run (this will compile the C++ extension against your current Python, e.g. 3.13):
 
-```cmd
+```bash
 pip install .
 ```
 
 To use example programs:
-```cmd
+```bash
 pip install .[examples]
-or
+# or
 uv sync --extra examples
 ```
 
 To generate a wheel (recommended for distribution / reuse):
 
-```cmd
+```bash
 pip install build
 python -m build --wheel
 ```
 
-You will find the wheel under `dist/` (e.g. `edsdk_python-0.1.1-cp313-cp313-win_amd64.whl`). Install it with:
+You will find the wheel under `dist/`.
 
+### Windows
+Example: `edsdk_python-0.1.2-cp313-cp313-win_amd64.whl`
+
+Install with:
 ```cmd
-pip install dist\edsdk_python-0.1.1-cp313-cp313-win_amd64.whl
+pip install dist\edsdk_python-0.1.2-cp313-cp313-win_amd64.whl
 ```
+
+### macOS
+Example: `edsdk_python-0.1.2-cp313-cp313-macosx_11_0_arm64.whl`
+
+Install with:
+```bash
+pip install dist/edsdk_python-0.1.2-cp313-cp313-macosx_11_0_arm64.whl
+```
+
+**Note for macOS:** The package uses `rpath` to automatically find the framework. No environment variables needed if you:
+- Bundled the framework with the package (Option 1), OR
+- Installed the framework to `/Library/Frameworks/` (Option 2)
+
+The framework will be found automatically at runtime!
 
 ## Troubleshooting
 

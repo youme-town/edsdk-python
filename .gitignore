@@ -115,4 +115,7 @@ tags
 dependencies/*
 !**.gitkeep
 
+# Bundled EDSDK framework for macOS (proprietary, not committed to git)
+edsdk/Framework/
+
 .vscode
