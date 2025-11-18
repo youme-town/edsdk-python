@@ -121,6 +121,11 @@ You can comment out `Unknown` or rename it to `UNKNOWN` (or whatever you want) o
 
 ## Build the library
 
+**Important for macOS**: Make sure you have Xcode Command Line Tools installed:
+```bash
+xcode-select --install
+```
+
 Run (this will compile the C++ extension against your current Python, e.g. 3.13):
 
 ```bash

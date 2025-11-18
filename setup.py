@@ -13,7 +13,13 @@ EDSDK_PATH = "dependencies"
 if sys.platform == "darwin":  # macOS
     libraries = []
     library_dirs = []
-    extra_compile_args = ["-Wall", "-std=c++11", "-DDEBUG=0"]
+    extra_compile_args = [
+        "-Wall",
+        "-std=c++11",
+        "-stdlib=libc++",  # Use libc++ standard library
+        "-DDEBUG=0",
+        "-D__MACOS__",  # Define macOS platform macro for EDSDK headers
+    ]
     # Use rpath to find the framework relative to the installed module
     # @loader_path = directory containing the .so file
     # Going up to site-packages/edsdk, then to Framework directory
