@@ -56,18 +56,16 @@ dev = [
 packages = { find = { where = ["."], include = ["edsdk*"], exclude = ["examples"] } }
 
 [tool.setuptools.package-data]
-edsdk = ["py.typed", "api.pyi"]
+edsdk = [
+  "py.typed",
+  "api.pyi",
+  # Include Framework for macOS (if present)
+  "Framework/EDSDK.framework/**/*",
+]
 
-# Platform-specific data files - these are Windows DLLs
-# For macOS, the EDSDK.framework should be installed in the system or referenced via DYLD_FRAMEWORK_PATH
-# Note: setuptools.data-files doesn't support conditional platform-specific files easily
-# Windows users will need to ensure DLLs are in the package directory or PATH
-# macOS users will need to ensure the framework is in the standard framework search paths
-#
-# [tool.setuptools.data-files]
-# "Lib/site-packages/edsdk" = [
-#   "dependencies/EDSDK_64/Dll/EDSDK.dll",
-#   "dependencies/EDSDK_64/Dll/EdsImage.dll",
-# ]
+# Note: Platform-specific runtime libraries
+# - Windows: DLLs should be placed in the edsdk package directory manually or via PATH
+# - macOS: EDSDK.framework will be bundled if placed in edsdk/Framework/ before building
+#          The setup.py uses rpath to find the framework automatically
 
 # C++ Extension is defined in setup.py (experimental TOML form removed due to parsing issues)

@@ -50,10 +50,39 @@ Any additional files aren't needed, but won't hurt either in case you copied the
 
 ### For macOS:
 
-Unzip the macOS EDSDK package and copy the following inside the `dependencies` folder:
+Unzip the macOS EDSDK package and copy the header files to the `dependencies` folder:
 
-1. `EDSDK/Header` - Header files (same as Windows)
-2. `EDSDK/Framework` - The EDSDK.framework bundle
+1. Copy `EDSDK/Header` to `dependencies/EDSDK/Header`
+
+For the framework, you have two options:
+
+**Option 1: Bundle with package (Recommended)**
+
+Copy the framework to BOTH locations:
+```bash
+# For building (required)
+cp -r /path/to/EDSDK/Framework dependencies/EDSDK/Framework
+
+# For bundling with the package (makes it self-contained)
+mkdir -p edsdk/Framework
+cp -r /path/to/EDSDK/Framework/EDSDK.framework edsdk/Framework/
+```
+
+This will include the framework in your Python package, making it completely self-contained. No environment variables needed!
+
+**Option 2: System-wide installation**
+
+Install the framework to the system frameworks directory:
+```bash
+sudo cp -r /path/to/EDSDK/Framework/EDSDK.framework /Library/Frameworks/
+```
+
+Then only copy headers for building:
+```bash
+cp -r /path/to/EDSDK/Header dependencies/EDSDK/Header
+mkdir -p dependencies/EDSDK/Framework  # Create empty dir for build
+cp -r /path/to/EDSDK/Framework dependencies/EDSDK/Framework/
+```
 
 Your dependencies folder structure should look like this:
 
@@ -61,11 +90,11 @@ Your dependencies folder structure should look like this:
 dependencies/EDSDK/Header/EDSDK.h
 dependencies/EDSDK/Header/EDSDKErrors.h
 dependencies/EDSDK/Header/EDSDKTypes.h
+dependencies/EDSDK/Framework/EDSDK.framework/  # For building
 
-dependencies/EDSDK/Framework/EDSDK.framework/
+# If using Option 1, also:
+edsdk/Framework/EDSDK.framework/  # Bundled with package
 ```
-
-Note: The EDSDK.framework contains all the dynamic libraries needed for macOS.
 
 
 ## Modify EDSDKTypes.h (Windows only)
@@ -130,12 +159,11 @@ Install with:
 pip install dist/edsdk_python-0.1.2-cp313-cp313-macosx_11_0_arm64.whl
 ```
 
-**Important for macOS:** After installation, you may need to set the framework search path:
-```bash
-export DYLD_FRAMEWORK_PATH=/path/to/edsdk-python/dependencies/EDSDK/Framework:$DYLD_FRAMEWORK_PATH
-```
+**Note for macOS:** The package uses `rpath` to automatically find the framework. No environment variables needed if you:
+- Bundled the framework with the package (Option 1), OR
+- Installed the framework to `/Library/Frameworks/` (Option 2)
 
-Or copy the EDSDK.framework to a system framework directory like `/Library/Frameworks/`.
+The framework will be found automatically at runtime!
 
 ## Troubleshooting
 

@@ -14,9 +14,14 @@ if sys.platform == "darwin":  # macOS
     libraries = []
     library_dirs = []
     extra_compile_args = ["-Wall", "-std=c++11", "-DDEBUG=0"]
+    # Use rpath to find the framework relative to the installed module
+    # @loader_path = directory containing the .so file
+    # Going up to site-packages/edsdk, then to Framework directory
     extra_link_args = [
         "-F", f"{EDSDK_PATH}/EDSDK/Framework",
-        "-framework", "EDSDK"
+        "-framework", "EDSDK",
+        "-Wl,-rpath,@loader_path/Framework",  # For bundled framework
+        "-Wl,-rpath,/Library/Frameworks",  # For system-installed framework
     ]
 elif sys.platform == "win32":  # Windows
     libraries = ["EDSDK"]
