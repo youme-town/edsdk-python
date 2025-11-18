@@ -172,10 +172,39 @@ The framework will be found automatically at runtime!
 
 ## Troubleshooting
 
-If you see errors like:
+### Windows Errors
 
-- C2365: 'Unknown': redefinition; previous definition was 'enumerator'
-    Follow [Modify EDSDKTypes.h](#modify-edsdktypesh).
+- **C2365: 'Unknown': redefinition; previous definition was 'enumerator'**
+    - Follow [Modify EDSDKTypes.h](#modify-edsdktypesh-windows-only).
 
-- "OpenCV (cv2) not found" when running examples
-    Install extras: `pip install edsdk-python[display]` or `pip install -r requirements-examples.txt`.
+### macOS Errors
+
+- **fatal error: 'map' file not found** or other C++ standard library headers missing
+    - Make sure Xcode Command Line Tools are installed:
+      ```bash
+      xcode-select --install
+      ```
+    - If already installed, try resetting the path:
+      ```bash
+      sudo xcode-select --reset
+      ```
+    - Verify the SDK path is correct:
+      ```bash
+      xcrun --show-sdk-path
+      ```
+
+- **Framework not found at runtime**
+    - Make sure you either bundled the framework (Option 1) or installed it system-wide (Option 2).
+    - Check if the framework exists:
+      ```bash
+      # For bundled framework
+      ls -la ~/.local/lib/python3.*/site-packages/edsdk/Framework/EDSDK.framework
+
+      # For system framework
+      ls -la /Library/Frameworks/EDSDK.framework
+      ```
+
+### Common Errors
+
+- **"OpenCV (cv2) not found" when running examples**
+    - Install extras: `pip install edsdk-python[examples]`

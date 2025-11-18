@@ -5,14 +5,39 @@ for environments that still invoke setup.py directly (e.g. some older tooling or
 """
 
 import sys
+import subprocess
 from setuptools import setup, Extension
 
 EDSDK_PATH = "dependencies"
+
+def get_macos_sdk_path():
+    """Get macOS SDK path using xcrun."""
+    try:
+        result = subprocess.run(
+            ["xcrun", "--show-sdk-path"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback to default path
+        return "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
 
 # Platform-specific configuration
 if sys.platform == "darwin":  # macOS
     libraries = []
     library_dirs = []
+
+    # Get macOS SDK path for C++ standard library headers
+    sdk_path = get_macos_sdk_path()
+
+    # Include directories: EDSDK headers + macOS SDK C++ headers
+    include_dirs = [
+        f"{EDSDK_PATH}/EDSDK/Header",
+        f"{sdk_path}/usr/include/c++/v1",  # libc++ headers
+    ]
+
     extra_compile_args = [
         "-Wall",
         "-std=c++11",
@@ -32,6 +57,7 @@ if sys.platform == "darwin":  # macOS
 elif sys.platform == "win32":  # Windows
     libraries = ["EDSDK"]
     library_dirs = [f"{EDSDK_PATH}/EDSDK_64/Library"]
+    include_dirs = [f"{EDSDK_PATH}/EDSDK/Header"]
     extra_compile_args = ["/W4", "/DDEBUG=0"]
     extra_link_args = []
 else:
@@ -40,7 +66,7 @@ else:
 extension = Extension(
     "edsdk.api",
     libraries=libraries,
-    include_dirs=[f"{EDSDK_PATH}/EDSDK/Header"],
+    include_dirs=include_dirs,
     library_dirs=library_dirs,
     depends=["edsdk/edsdk_python.h", "edsdk/edsdk_utils.h"],
     sources=["edsdk/edsdk_python.cpp", "edsdk/edsdk_utils.cpp"],
